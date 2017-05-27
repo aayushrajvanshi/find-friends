@@ -32,7 +32,11 @@ app.use(morgan('dev'));
 
 var apiRoutes = express.Router();
 
-apiRoutes.post('/login', function (req, res) {
+apiRoutes.get('/', (req, res) => {
+    res.send('Hello World!');
+});
+
+apiRoutes.post('/login', (req, res) => {
     User.findOne({
         email_id: req.body.email_id
     }, (err, user) => {
@@ -161,7 +165,7 @@ apiRoutes.post('/friend-request', (req, res) => {
     let token = req.body.token || req.query.token || req.headers['x-access-token'];
     let email_id = req.body.email_id;
     let status = req.body.status;
-    if (status === 'Accepted') { 
+    if (status === 'Accepted') {
         User.findOne({
             access_token: token
         }, (err, user) => {
@@ -349,6 +353,14 @@ apiRoutes.post('/update-my-location', (req, res) => {
 });
 
 app.use('/api', apiRoutes);
+
+app.use((req, res, next) => {
+    if (req.headers['x-forwarded-proto'] === 'https') {
+        res.redirect('http://' + req.hostname + req.url);
+    } else {
+        next();
+    }
+});
 
 app.listen(port);
 console.log('Server started at http://localhost:' + port);
