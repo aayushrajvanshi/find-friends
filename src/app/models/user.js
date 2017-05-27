@@ -2,10 +2,28 @@ import mongoose from 'mongoose';
 const Schema = mongoose.Schema;
 
 module.exports = mongoose.model('User', new Schema({
-    name: String,
-    pic_url: String,
-    google_id: String,
-    gcm_key: String,
-    email_id: String,
-    access_token: String
+    name: {
+        type: String,
+        required: true
+    },
+    pic_url: {
+        type: String,
+        required: false
+    },
+    google_id: {
+        type: String,
+        required: true
+    },
+    gcm_key: {
+        type: String,
+        required: true
+    },
+    email_id: {
+        type: String,
+        required: true
+    },
+    access_token: {
+        type: String,
+        required: false
+    },
 }));

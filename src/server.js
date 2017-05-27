@@ -17,9 +17,11 @@ var Location = require('./app/models/location');
 const sender = new gcm.Sender(config.server_key);
 
 const port = process.env.PORT || 8080;
-mongoose.connect(config.database, (err) => {
+const isProd = process.env.NODE_ENV === 'production';
+
+mongoose.Promise = global.Promise;
+mongoose.connect(isProd ? config.database_prod : config.database_dev, (err) => {
     if (err) console.error(err);
-    else console.log('Mongo DB Connected');
 });
 app.set('superSecret', config.secret);
 
@@ -32,16 +34,37 @@ app.use(morgan('dev'));
 
 var apiRoutes = express.Router();
 
-apiRoutes.get('/', (req, res) => {
-    res.send('Hello World!');
+app.get('/', (req, res) => {
+    res.send('API Available');
 });
 
 apiRoutes.post('/login', (req, res) => {
     User.findOne({
-        email_id: req.body.email_id
-    }, (err, user) => {
-        if (err) throw err;
-        if (!user) {
+            email_id: req.body.email_id
+        })
+        .exec()
+        .then((user) => {
+            user.access_token = '';
+            let token = jwt.sign(user.email_id, app.get('superSecret'));
+            User.update({
+                    email_id: user.email_id
+                }, {
+                    gcm_key: req.body.gcm_key,
+                    access_token: token
+                }, {
+                    upsert: true
+                }).exec()
+                .then(() => {
+                    res.json({
+                        success: true,
+                        status_code: '501',
+                        token: token,
+                        message: 'New Access Token Provided and GCM key updated'
+                    });
+                });
+        })
+        .catch((err) => {
+            if (err) console.error(err);
             let newUser = new User({
                 name: req.body.name,
                 pic_url: req.body.pic_url,
@@ -50,40 +73,28 @@ apiRoutes.post('/login', (req, res) => {
                 email_id: req.body.email_id,
                 access_token: ''
             });
-
-            let token = jwt.sign(newUser, app.get('superSecret'));
-
+            let token = jwt.sign(newUser.email_id, app.get('superSecret'));
             newUser.access_token = token;
-            newUser.save((err) => {
-                if (err) throw err;
-                console.log('User saved successfully');
-                res.json({
-                    success: true,
-                    message: 'User Added.',
-                    token: token
-                });
-            });
-        } else {
-            user.access_token = '';
-            let token = jwt.sign(user, app.get('superSecret'));
-            User.update({
-                email_id: user.email_id
-            }, {
-                gcm_key: req.body.gcm_key,
-                access_token: token
-            }, {
-                upsert: true
-            }, (err) => {
-                if (err) throw err;
-                else {
+            newUser.save()
+                .then(() => {
+                    console.log('User saved successfully');
                     res.json({
                         success: true,
+                        status_code: '501',
+                        message: 'User Added.',
                         token: token
                     });
-                }
-            });
-        }
-    });
+                })
+                .catch((err) => {
+                    if (err) console.error(err);
+                    res.json({
+                        success: false,
+                        status_code: '403',
+                        message: 'Failed to add user',
+                        error: err,
+                    });
+                })
+        });
 });
 
 apiRoutes.use((req, res, next) => {
@@ -104,7 +115,7 @@ apiRoutes.use((req, res, next) => {
     } else {
         return res.status(403).send({
             success: false,
-            success_code: '401',
+            success_code: '403',
             message: 'No token provided.'
         });
 
@@ -115,57 +126,70 @@ apiRoutes.post('/connect-friend', (req, res) => {
     let token = req.body.token || req.query.token || req.headers['x-access-token'];
     let friend_email_id = req.body.friend_email_id;
     User.findOne({
-        email_id: friend_email_id
-    }, (err, user) => {
-        if (err) throw err;
-        if (!user) {
-            res.json({
-                success: true,
-                status_code: 501,
-                message: 'Friend does not exists'
-            });
-        } else {
-            var message = new gcm.Message({
-                collapseKey: 'demo',
-                priority: 'high',
-                contentAvailable: true,
-                delayWhileIdle: true,
-                timeToLive: 3,
-                restrictedPackageName: "somePackageName",
-                dryRun: true,
-                data: {
-                    key1: 'message1',
-                    key2: 'message2'
-                },
-                notification: {
-                    title: "Hello, World",
-                    icon: "ic_launcher",
-                    body: "This is a notification that will be displayed if your app is in the background."
-                }
-            });
-            var regTokens = ['YOUR_REG_TOKEN_HERE'];
-            sender.send(message, {
-                registrationTokens: regTokens
-            }, (err, response) => {
-                if (err) console.error(err);
-                else {
-                    console.log(response);
-                    res.json({
-                        success: true,
-                        status_code: 200,
-                        message: 'Push Notification sent to User'
+            access_token: token
+        }).exec()
+        .then((user) => {
+            let senderUser = user.name
+            User.findOne({
+                    email_id: friend_email_id
+                }).exec()
+                .then((user) => {
+                    let reg_token = [user.gcm_key];
+                    let message = new gcm.Message({
+                        collapseKey: 'demo',
+                        priority: 'high',
+                        contentAvailable: true,
+                        delayWhileIdle: true,
+                        timeToLive: 3,
+                        dryRun: true,
+                        data: {
+                            key1: 'message1',
+                            key2: 'message2'
+                        },
+                        notification: {
+                            title: "Find Friends",
+                            icon: "find-friends",
+                            body: senderUser + " requesting you to share your location."
+                        }
                     });
-                };
+                    sender.send(message, {
+                        registrationTokens: reg_token
+                    }, (err, response) => {
+                        if (err) console.error(err);
+                        else {
+                            console.log(response);
+                            res.json({
+                                success: true,
+                                status_code: 501,
+                                message: 'Push Notification sent to User'
+                            });
+                        };
+                    });
+                })
+                .catch((err) => {
+                    if (err) console.error(err);
+                    res.json({
+                        success: false,
+                        status_code: 501,
+                        message: 'Friend does not exists'
+                    });
+                });
+        })
+        .catch((err) => {
+            if (err) console.error(err);
+            res.json({
+                success: false,
+                status_code: 401,
+                message: 'Error'
             });
-        }
-    });
+        });
 });
 
 apiRoutes.post('/friend-request', (req, res) => {
     let token = req.body.token || req.query.token || req.headers['x-access-token'];
     let email_id = req.body.email_id;
     let status = req.body.status;
-    if (status === 'Accepted') {
+    if (status === 'Allowed') {
         User.findOne({
             access_token: token
         }, (err, user) => {
@@ -178,20 +202,17 @@ apiRoutes.post('/friend-request', (req, res) => {
                 if (err) throw err;
                 console.log('Mapping saved successfully');
                 res.json({
-                    success: 502,
+                    success: true,
+                    status_code: 501,
                     message: 'Request Accepted'
                 });
             });
         });
     } else if (status === 'Denied') {
         res.json({
-            success: 503,
+            success: false,
+            status_code: 403,
             message: 'Request Denied'
-        });
-    } else {
-        res.json({
-            success: 503,
-            message: 'Data not provided'
         });
     }
 });
@@ -277,31 +298,6 @@ apiRoutes.get('/get-connected', (req, res) => {
     });
 });
 
-apiRoutes.post('/get-friend-location', (req, res) => {
-    let friend_email_id = req.body.friend_email_id;
-    Location.find({
-        email_id: friend_email_id
-    }, (err, user) => {
-        if (err) throw err;
-        if (user.length !== 0) {
-            res.json({
-                success: true,
-                status_code: 501,
-                location: user.map(o => ({
-                    'latitude': o.latitude,
-                    'longitude': o.longitude
-                }))
-            });
-        } else {
-            res.json({
-                success: false,
-                status_code: 503,
-                message: 'User not found in location list'
-            });
-        }
-    });
-});
-
 apiRoutes.post('/update-my-location', (req, res) => {
     let token = req.body.token || req.query.token || req.headers['x-access-token'];
     let latitude = req.body.latitude;
@@ -350,6 +346,28 @@ apiRoutes.post('/update-my-location', (req, res) => {
             }
         })
     });
+});
+
+apiRoutes.get('/test', (req, res) => {
+    let token = req.body.token || req.query.token || req.headers['x-access-token'];
+    User.findOne({
+            access_token: token
+        }).exec()
+        .then((user) => {
+            return User.findOne({
+                email_id: user.id
+            }).exec();
+        })
+        .then((user) => {
+            res.json({
+                user
+            })
+        })
+        .catch(() => {
+            res.json({
+                error: 'User not found'
+            })
+        });
 });
 
 app.use('/api', apiRoutes);
