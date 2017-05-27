@@ -5,9 +5,10 @@
   "main": "index.js",
   "scripts": {
     "clean": "rimraf ./dist/*",
-    "start": "node src/server.js --exec babel-node",
+    "dev": "node src/server.js --exec babel-node",
     "build": "npm run clean && babel src -d dist",
-    "serve": "node dist/server.js"
+    "serve": "node dist/server.js",
+    "start": "npm run build && npm run serve"
   },
   "keywords": [],
   "author": "",
