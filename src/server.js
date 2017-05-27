@@ -3,9 +3,9 @@ const app = express();
 import bodyParser from 'body-parser';
 import morgan from 'morgan';
 import mongoose from 'mongoose';
-import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import config from './config';
+import gcm from 'node-gcm';
 import cors from 'cors';
 
 app.use(cors());
@@ -14,8 +14,13 @@ var User = require('./app/models/user');
 var Mapping = require('./app/models/mapping');
 var Location = require('./app/models/location');
 
+const sender = new gcm.Sender(config.server_key);
+
 const port = process.env.PORT || 8080;
-mongoose.connect(config.database);
+mongoose.connect(config.database, (err) => {
+    if (err) console.error(err);
+    else console.log('Mongo DB Connected');
+});
 app.set('superSecret', config.secret);
 
 app.use(bodyParser.urlencoded({
@@ -42,9 +47,7 @@ apiRoutes.post('/login', function (req, res) {
                 access_token: ''
             });
 
-            let token = jwt.sign(newUser, app.get('superSecret'), {
-                expiresIn: "86400000"
-            });
+            let token = jwt.sign(newUser, app.get('superSecret'));
 
             newUser.access_token = token;
             newUser.save((err) => {
@@ -58,9 +61,7 @@ apiRoutes.post('/login', function (req, res) {
             });
         } else {
             user.access_token = '';
-            let token = jwt.sign(user, app.get('superSecret'), {
-                expiresIn: "86400000"
-            });
+            let token = jwt.sign(user, app.get('superSecret'));
             User.update({
                 email_id: user.email_id
             }, {
@@ -84,7 +85,6 @@ apiRoutes.post('/login', function (req, res) {
 apiRoutes.use((req, res, next) => {
     let token = req.body.token || req.query.token || req.headers['x-access-token'];
     if (token) {
-
         jwt.verify(token, app.get('superSecret'), (err, decoded) => {
             if (err) {
                 return res.json({
@@ -108,6 +108,7 @@ apiRoutes.use((req, res, next) => {
 });
 
 apiRoutes.post('/connect-friend', (req, res) => {
+    let token = req.body.token || req.query.token || req.headers['x-access-token'];
     let friend_email_id = req.body.friend_email_id;
     User.findOne({
         email_id: friend_email_id
@@ -120,10 +121,37 @@ apiRoutes.post('/connect-friend', (req, res) => {
                 message: 'Friend does not exists'
             });
         } else {
-            res.json({
-                success: true,
-                status_code: 200,
-                message: 'Push Notification sent to User'
+            var message = new gcm.Message({
+                collapseKey: 'demo',
+                priority: 'high',
+                contentAvailable: true,
+                delayWhileIdle: true,
+                timeToLive: 3,
+                restrictedPackageName: "somePackageName",
+                dryRun: true,
+                data: {
+                    key1: 'message1',
+                    key2: 'message2'
+                },
+                notification: {
+                    title: "Hello, World",
+                    icon: "ic_launcher",
+                    body: "This is a notification that will be displayed if your app is in the background."
+                }
+            });
+            var regTokens = ['YOUR_REG_TOKEN_HERE'];
+            sender.send(message, {
+                registrationTokens: regTokens
+            }, (err, response) => {
+                if (err) console.error(err);
+                else {
+                    console.log(response);
+                    res.json({
+                        success: true,
+                        status_code: 200,
+                        message: 'Push Notification sent to User'
+                    });
+                };
             });
         }
     });
@@ -133,7 +161,7 @@ apiRoutes.post('/friend-request', (req, res) => {
     let token = req.body.token || req.query.token || req.headers['x-access-token'];
     let email_id = req.body.email_id;
     let status = req.body.status;
-    if (status === 'Accepted') {
+    if (status === 'Accepted') { 
         User.findOne({
             access_token: token
         }, (err, user) => {
