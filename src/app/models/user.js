@@ -2,6 +2,10 @@ import mongoose from 'mongoose';
 const Schema = mongoose.Schema;
 
 module.exports = mongoose.model('User', new Schema({
+    email_id: {
+        type: String,
+        required: true
+    },
     name: {
         type: String,
         required: true
@@ -18,9 +22,17 @@ module.exports = mongoose.model('User', new Schema({
         type: String,
         required: true
     },
-    email_id: {
-        type: String,
-        required: true
+    location: {
+        latitude: {
+            type: String,
+            required: false,
+            default: ''
+        },
+        longitude: {
+            type: String,
+            required: false,
+            default: ''
+        }
     },
     access_token: {
         type: String,
