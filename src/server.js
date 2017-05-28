@@ -12,7 +12,6 @@ app.use(cors());
 
 var User = require('./app/models/user');
 var Mapping = require('./app/models/mapping');
-var Location = require('./app/models/location');
 
 const sender = new gcm.Sender(config.server_key);
 
@@ -423,103 +422,98 @@ apiRoutes.post('/friend-request', (req, res) => {
 apiRoutes.post('/disconnect', (req, res) => {
     let token = req.body.token || req.query.token || req.headers['x-access-token'];
     let friend_email_id = req.body.friend_email_id;
-    if (!friend_email_id) {
-        User.findOne({
+    //Getting User details
+    User.findOne({
             access_token: token
-        }, (err, user) => {
-            if (err) throw err;
-            User.findOne({
-                email_id: user.email_id
-            }, (err, user) => {
-                if (err) throw err;
+        }).exec()
+        .then((user) => {
+            //Disconnect all connected friends if no email_id provided
+            if (!friend_email_id) {
                 Mapping.remove({
                     email_id: user.email_id
                 }, (err) => {
                     if (err) throw err;
                     res.json({
-                        status: 501,
+                        success: true,
+                        status_code: 501,
                         message: 'All friends disconnected'
                     });
                 });
-            })
-        });
-    } else {
-        User.findOne({
-            access_token: token
-        }, (err, user) => {
-            if (err) throw err;
-            User.findOne({
-                email_id: user.email_id
-            }, (err, user) => {
-                if (err) throw err;
+            }
+            //Disconnect friend with provided email_id
+            else {
                 Mapping.remove({
                     email_id: user.email_id,
                     friend_email_id: friend_email_id
                 }, (err) => {
                     if (err) throw err;
                     res.json({
-                        status: 501,
+                        success: true,
+                        status_code: 501,
                         message: 'Friend disconnected'
                     });
                 });
-            })
+            }
+        })
+        .catch((err) => {
+            if (err) console.error(err);
+            res.json({
+                success: false,
+                status_code: 401,
+                message: 'Error'
+            });
         });
-    }
+
 });
 
 apiRoutes.get('/get-connected', (req, res) => {
     let token = req.body.token || req.query.token || req.headers['x-access-token'];
     User.findOne({
-        access_token: token
-    }, (err, user) => {
-        if (err) throw err;
-        Mapping.find({
-            email_id: user.email_id
-        }, (err, data) => {
-            let friend = [];
-            data.map(o => User.find({
-                email_id: o.friend_email_id
-            }, (err, user) => {
-                if (err) throw err;
-                if (user) {
-                    friend.push(user.map(o => ({
-                        'name': o.name,
-                        'pic_url': o.pic_url,
-                        'email_id': o.email_id,
-                    })));
-                }
-            }));
-            setTimeout(() => {
-                res.json({
-                    success: true,
-                    status_code: 501,
-                    data: friend
-                })
-            }, 1000);
-        })
-
-    });
-});
-
-apiRoutes.get('/test', (req, res) => {
-    let token = req.body.token || req.query.token || req.headers['x-access-token'];
-    User.findOne({
             access_token: token
         }).exec()
         .then((user) => {
-            return User.findOne({
-                email_id: user.id
-            }).exec();
+            Mapping.find({
+                    email_id: user.email_id
+                }).exec()
+                .then((mapping) => {
+                    let friends = [];
+                    mapping.map(o => User.find({
+                        email_id: o.friend_email_id
+                    }, (err, user) => {
+                        if (err) throw err;
+                        if (user) {
+                            friends.push(user.map(o => ({
+                                'name': o.name,
+                                'pic_url': o.pic_url,
+                                'email_id': o.email_id,
+                            })));
+                        }
+                    }));
+                    setTimeout(() => {
+                        res.json({
+                            success: true,
+                            status_code: 501,
+                            message: 'List of connected friends',
+                            data: friends
+                        })
+                    }, 1000);
+                })
+                .catch((err) => {
+                    if (err) console.error(err);
+                    res.json({
+                        success: false,
+                        status_code: 401,
+                        message: 'Error'
+                    });
+                })
         })
-        .then((user) => {
+        .catch((err) => {
+            if (err) console.error(err);
             res.json({
-                user
-            })
-        })
-        .catch(() => {
-            res.json({
-                error: 'User not found'
-            })
+                success: false,
+                status_code: 401,
+                message: 'Error'
+            });
         });
 });
 
