@@ -486,7 +486,7 @@ apiRoutes.get('/get-connected', (req, res) => {
                                 'name': o.name,
                                 'pic_url': o.pic_url,
                                 'email_id': o.email_id,
-                            })));
+                            }))[0]);
                         }
                     }));
                     setTimeout(() => {
