@@ -244,52 +244,75 @@ apiRoutes.post('/connect-friend', (req, res) => {
         }).exec()
         .then((user) => {
             let senderUser = user.name
-            //Getting friend's details
-            User.findOne({
-                    email_id: friend_email_id
+            //Checking if mapping already exists
+            Mapping.findOne({
+                    email_id: user.email_id,
+                    friend_email_id: friend_email_id
                 }).exec()
-                .then((user) => {
-                    let reg_token = [user.gcm_key];
-                    let message = new gcm.Message({
-                        collapseKey: 'demo',
-                        priority: 'high',
-                        contentAvailable: true,
-                        delayWhileIdle: true,
-                        timeToLive: 3,
-                        dryRun: true,
-                        data: {
-                            key1: 'message1',
-                            key2: 'message2'
-                        },
-                        notification: {
-                            title: "Find Friends",
-                            icon: "find-friends",
-                            body: senderUser + " requesting you to share your location."
-                        }
-                    });
-                    //Sending Push Notification to Friend
-                    sender.send(message, {
-                        registrationTokens: reg_token
-                    }, (err, response) => {
-                        if (err) console.error(err);
-                        else {
-                            console.log(response);
-                            res.json({
-                                success: true,
-                                status_code: 501,
-                                message: 'Push Notification send to friend'
+                .then((mapping) => {
+                    if (!mapping) {
+                        //Getting friend's details
+                        User.findOne({
+                                email_id: friend_email_id
+                            }).exec()
+                            .then((user) => {
+                                let reg_token = [user.gcm_key];
+                                let message = new gcm.Message({
+                                    collapseKey: 'demo',
+                                    priority: 'high',
+                                    contentAvailable: true,
+                                    delayWhileIdle: true,
+                                    timeToLive: 3,
+                                    dryRun: true,
+                                    data: {
+                                        key1: 'message1',
+                                        key2: 'message2'
+                                    },
+                                    notification: {
+                                        title: "Find Friends",
+                                        icon: "find-friends",
+                                        body: senderUser + " requesting you to share your location."
+                                    }
+                                });
+                                //Sending Push Notification to Friend
+                                sender.send(message, {
+                                    registrationTokens: reg_token
+                                }, (err, response) => {
+                                    if (err) console.error(err);
+                                    else {
+                                        console.log(response);
+                                        res.json({
+                                            success: true,
+                                            status_code: 501,
+                                            message: 'Push Notification send to friend'
+                                        });
+                                    };
+                                });
+                            })
+                            .catch((err) => {
+                                if (err) console.error(err);
+                                res.json({
+                                    success: false,
+                                    status_code: 501,
+                                    message: 'Friend does not exists'
+                                });
                             });
-                        };
-                    });
+                    } else {
+                        res.json({
+                            success: false,
+                            status_code: 501,
+                            message: 'You are already connected.'
+                        });
+                    }
                 })
                 .catch((err) => {
-                    if (err) console.error(err);
                     res.json({
                         success: false,
                         status_code: 501,
-                        message: 'Friend does not exists'
+                        message: err
                     });
                 });
+
         })
         .catch((err) => {
             if (err) console.error(err);
@@ -316,50 +339,85 @@ apiRoutes.post('/friend-request', (req, res) => {
                     }).exec()
                     .then((user) => {
                         let receiverUser = user;
-                        let mapping = new Mapping({
+                        let mapping_1 = new Mapping({
                             email_id: receiverUser.email_id,
                             friend_email_id: senderUser.email_id
                         });
-                        mapping.save((err) => {
-                            if (err) throw err;
-                            console.log('Mapping saved successfully');
+                        Mapping.findOne({
+                                email_id: receiverUser.email_id,
+                                friend_email_id: senderUser.email_id
+                            }).exec()
+                            .then((mapping) => {
+                                if (!mapping) {
+                                    mapping_1.save((err) => {
+                                        if (err) throw err;
+                                        console.log('Mapping saved successfully');
+                                    });
+                                    let reg_token = [receiverUser.gcm_key];
+                                    let message = new gcm.Message({
+                                        collapseKey: 'demo',
+                                        priority: 'high',
+                                        contentAvailable: true,
+                                        delayWhileIdle: true,
+                                        timeToLive: 3,
+                                        dryRun: true,
+                                        notification: {
+                                            title: "Find Friends",
+                                            icon: "find-friends",
+                                            body: senderUser.name + " has accepted your request"
+                                        }
+                                    });
+                                    //Sending Push Notification to Friend
+                                    sender.send(message, {
+                                        registrationTokens: reg_token
+                                    }, (err, response) => {
+                                        if (err) console.error(err);
+                                        else {
+                                            console.log(response);
+                                            res.json({
+                                                success: true,
+                                                status_code: 200,
+                                                message: senderUser.name + ' has accepted your request'
+                                            });
+                                        };
+                                    });
+                                } else {
+                                    res.json({
+                                        success: true,
+                                        status_code: 501,
+                                        message: 'You have already accepted the request'
+                                    });
+                                }
+                            })
+                            .catch((err) => {
+                                if (err) console.error(err);
+                            });
+                        let mapping_2 = new Mapping({
+                            email_id: senderUser.email_id,
+                            friend_email_id: receiverUser.email_id
                         });
-                        let reg_token = [receiverUser.gcm_key];
-                        let message = new gcm.Message({
-                            collapseKey: 'demo',
-                            priority: 'high',
-                            contentAvailable: true,
-                            delayWhileIdle: true,
-                            timeToLive: 3,
-                            dryRun: true,
-                            notification: {
-                                title: "Find Friends",
-                                icon: "find-friends",
-                                body: senderUser.name + " has accepted your request"
-                            }
-                        });
-                        //Sending Push Notification to Friend
-                        sender.send(message, {
-                            registrationTokens: reg_token
-                        }, (err, response) => {
-                            if (err) console.error(err);
-                            else {
-                                console.log(response);
-                                res.json({
-                                    success: true,
-                                    status_code: 200,
-                                    message: senderUser.name + ' has accepted your request'
-                                });
-                            };
-                        });
-
+                        Mapping.findOne({
+                                email_id: senderUser.email_id,
+                                friend_email_id: receiverUser.email_id
+                            }).exec()
+                            .then((mapping) => {
+                                if (!mapping) {
+                                    mapping_2.save((err) => {
+                                        if (err) throw err;
+                                        console.log('Mapping saved successfully');
+                                    });
+                                }
+                            })
+                            .catch((err) => {
+                                if (err) console.error(err);
+                            });
                     })
                     .catch((err) => {
                         if (err) console.error(err);
                         res.json({
                             success: false,
                             status_code: 501,
-                            message: err
+                            message: 'User does not exists'
                         });
                     });
             } else if (status === 'Denied') {
