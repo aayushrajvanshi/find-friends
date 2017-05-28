@@ -4,7 +4,9 @@ const Schema = mongoose.Schema;
 module.exports = mongoose.model('User', new Schema({
     email_id: {
         type: String,
-        required: true
+        required: true,
+        unique: true,
+        index: true
     },
     name: {
         type: String,
@@ -36,6 +38,8 @@ module.exports = mongoose.model('User', new Schema({
     },
     access_token: {
         type: String,
-        required: false
+        required: false,
+        unique: true,
+        index: true
     },
 }));
