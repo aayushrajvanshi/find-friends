@@ -56,9 +56,9 @@ apiRoutes.post('/login', (req, res) => {
                 .then(() => {
                     res.json({
                         success: true,
-                        status_code: '501',
-                        token: token,
-                        message: 'New Access Token Provided and GCM key updated'
+                        status_code: 200,
+                        message: 'New Access Token Provided and GCM key updated',
+                        token: token
                     });
                 });
         })
@@ -79,7 +79,7 @@ apiRoutes.post('/login', (req, res) => {
                     console.log('User saved successfully');
                     res.json({
                         success: true,
-                        status_code: '501',
+                        status_code: 200,
                         message: 'User Added.',
                         token: token
                     });
@@ -88,8 +88,8 @@ apiRoutes.post('/login', (req, res) => {
                     if (err) console.error(err);
                     res.json({
                         success: false,
-                        status_code: '403',
-                        message: 'Failed to add user',
+                        status_code: 501,
+                        message: 'Failed to Add user',
                         error: err,
                     });
                 })
@@ -103,7 +103,7 @@ apiRoutes.use((req, res, next) => {
             if (err) {
                 return res.json({
                     success: false,
-                    success_code: '401',
+                    status_code: 401,
                     message: 'Failed to authenticate token.'
                 });
             } else {
@@ -114,7 +114,7 @@ apiRoutes.use((req, res, next) => {
     } else {
         return res.status(403).send({
             success: false,
-            success_code: '403',
+            status_code: 401,
             message: 'No token provided.'
         });
 
@@ -184,7 +184,7 @@ apiRoutes.post('/update-my-location', (req, res) => {
                                                     console.log(response);
                                                     res.json({
                                                         success: true,
-                                                        status_code: 501,
+                                                        status_code: 200,
                                                         message: 'Location updated and Push Notification sends to all connected friends'
                                                     });
                                                 };
@@ -192,7 +192,7 @@ apiRoutes.post('/update-my-location', (req, res) => {
                                         } else {
                                             res.json({
                                                 success: true,
-                                                status_code: 501,
+                                                status_code: 200,
                                                 message: 'Location updated but no friends connected'
                                             });
                                         }
@@ -202,7 +202,7 @@ apiRoutes.post('/update-my-location', (req, res) => {
                                     if (err) console.log(err);
                                     res.json({
                                         success: true,
-                                        status_code: '403',
+                                        status_code: 501,
                                         message: 'User not found'
                                     });
                                 });
@@ -211,7 +211,7 @@ apiRoutes.post('/update-my-location', (req, res) => {
                             if (err) console.log(err);
                             res.json({
                                 success: true,
-                                status_code: '403',
+                                status_code: 501,
                                 message: 'User not found'
                             });
                         });
@@ -220,7 +220,7 @@ apiRoutes.post('/update-my-location', (req, res) => {
                     if (err) console.log(err);
                     res.json({
                         success: true,
-                        status_code: '403',
+                        status_code: 501,
                         message: 'Unable to update location'
                     });
                 });
@@ -229,7 +229,7 @@ apiRoutes.post('/update-my-location', (req, res) => {
             if (err) console.log(err);
             res.json({
                 success: false,
-                status_code: 401,
+                status_code: 501,
                 message: 'Error'
             });
         });
@@ -295,8 +295,8 @@ apiRoutes.post('/connect-friend', (req, res) => {
             if (err) console.error(err);
             res.json({
                 success: false,
-                status_code: 401,
-                message: 'Error'
+                status_code: 501,
+                message: err
             });
         });
 });
@@ -347,7 +347,7 @@ apiRoutes.post('/friend-request', (req, res) => {
                                 console.log(response);
                                 res.json({
                                     success: true,
-                                    status_code: 501,
+                                    status_code: 200,
                                     message: senderUser.name + ' has accepted your request'
                                 });
                             };
@@ -358,8 +358,8 @@ apiRoutes.post('/friend-request', (req, res) => {
                         if (err) console.error(err);
                         res.json({
                             success: false,
-                            status_code: 401,
-                            message: 'Error'
+                            status_code: 501,
+                            message: err
                         });
                     });
             } else if (status === 'Denied') {
@@ -391,7 +391,7 @@ apiRoutes.post('/friend-request', (req, res) => {
                                 console.log(response);
                                 res.json({
                                     success: true,
-                                    status_code: 501,
+                                    status_code: 200,
                                     message: senderUser.name + ' has denied your request'
                                 });
                             };
@@ -402,8 +402,8 @@ apiRoutes.post('/friend-request', (req, res) => {
                         if (err) console.error(err);
                         res.json({
                             success: false,
-                            status_code: 401,
-                            message: 'Error'
+                            status_code: 501,
+                            message: err
                         });
                     });
             }
@@ -412,8 +412,8 @@ apiRoutes.post('/friend-request', (req, res) => {
             if (err) console.error(err);
             res.json({
                 success: false,
-                status_code: 401,
-                message: 'Error'
+                status_code: 501,
+                message: err
             });
         })
 
@@ -435,7 +435,7 @@ apiRoutes.post('/disconnect', (req, res) => {
                     if (err) throw err;
                     res.json({
                         success: true,
-                        status_code: 501,
+                        status_code: 200,
                         message: 'All friends disconnected'
                     });
                 });
@@ -449,7 +449,7 @@ apiRoutes.post('/disconnect', (req, res) => {
                     if (err) throw err;
                     res.json({
                         success: true,
-                        status_code: 501,
+                        status_code: 200,
                         message: 'Friend disconnected'
                     });
                 });
@@ -459,8 +459,8 @@ apiRoutes.post('/disconnect', (req, res) => {
             if (err) console.error(err);
             res.json({
                 success: false,
-                status_code: 401,
-                message: 'Error'
+                status_code: 501,
+                message: err
             });
         });
 
@@ -492,7 +492,7 @@ apiRoutes.get('/get-connected', (req, res) => {
                     setTimeout(() => {
                         res.json({
                             success: true,
-                            status_code: 501,
+                            status_code: 200,
                             message: 'List of connected friends',
                             data: friends
                         })
@@ -502,8 +502,8 @@ apiRoutes.get('/get-connected', (req, res) => {
                     if (err) console.error(err);
                     res.json({
                         success: false,
-                        status_code: 401,
-                        message: 'Error'
+                        status_code: 501,
+                        message: err
                     });
                 })
         })
@@ -511,8 +511,8 @@ apiRoutes.get('/get-connected', (req, res) => {
             if (err) console.error(err);
             res.json({
                 success: false,
-                status_code: 401,
-                message: 'Error'
+                status_code: 501,
+                message: err
             });
         });
 });
