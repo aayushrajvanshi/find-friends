@@ -317,8 +317,8 @@ apiRoutes.post('/friend-request', (req, res) => {
                     .then((user) => {
                         let receiverUser = user;
                         let mapping = new Mapping({
-                            email_id: senderUser.email_id,
-                            friend_email_id: receiverUser.email_id
+                            email_id: receiverUser.email_id,
+                            friend_email_id: senderUser.email_id
                         });
                         mapping.save((err) => {
                             if (err) throw err;
