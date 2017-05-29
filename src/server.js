@@ -367,6 +367,11 @@ apiRoutes.post('/friend-request', (req, res) => {
                                         delayWhileIdle: true,
                                         timeToLive: 3,
                                         dryRun: true,
+                                        data: {
+                                            "request_type": "friend_request",
+                                            "email_id": senderUser.email,
+                                            "status": "accepted"
+                                        },
                                         notification: {
                                             title: "Find Friends",
                                             icon: "find-friends",
