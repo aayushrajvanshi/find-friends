@@ -10,6 +10,7 @@ import cors from 'cors';
 
 app.use(cors());
 
+var Constants = require('./constants');
 var User = require('./app/models/user');
 var Mapping = require('./app/models/mapping');
 
@@ -166,7 +167,7 @@ apiRoutes.post('/update-my-location', (req, res) => {
                                         //Sending Push Notification to all connected friends with updated location
                                         //Checking if any friend is connected
                                         if (reg_token.length !== 0) {
-                                            var message = {
+                                            let message = {
                                                 registration_ids: reg_token,
                                                 collapseKey: 'demo',
                                                 priority: 'high',
@@ -174,7 +175,13 @@ apiRoutes.post('/update-my-location', (req, res) => {
                                                 delayWhileIdle: true,
                                                 timeToLive: 3,
                                                 dryRun: true,
-                                                data: userLocation
+                                                data: {
+                                                    data: {
+                                                        "req": Constants.REQUEST_TYPE.filter(o => o.type === 'update-location').map(o => o.code)[0],
+                                                        "latitude": userLocation.latitude,
+                                                        "longitude": userLocation.longitude
+                                                    }
+                                                },
                                             };
                                             fcm.send(message, function (err, response) {
                                                 if (err) {
@@ -247,7 +254,7 @@ apiRoutes.post('/connect-friend', (req, res) => {
             access_token: token
         }).exec()
         .then((user) => {
-            let senderUser = user.name
+            let senderUser = user;
             //Checking if mapping already exists
             Mapping.findOne({
                     email_id: user.email_id,
@@ -261,7 +268,7 @@ apiRoutes.post('/connect-friend', (req, res) => {
                             }).exec()
                             .then((user) => {
                                 let reg_token = [user.fcm_key];
-                                var message = {
+                                let message = {
                                     registration_ids: reg_token,
                                     collapseKey: 'demo',
                                     priority: 'high',
@@ -269,6 +276,12 @@ apiRoutes.post('/connect-friend', (req, res) => {
                                     delayWhileIdle: true,
                                     timeToLive: 3,
                                     dryRun: true,
+                                    data: {
+                                        data: {
+                                            "req": Constants.REQUEST_TYPE.filter(o => o.type === 'connect-friend').map(o => o.code)[0],
+                                            "eid": senderUser.email_id
+                                        }
+                                    },
                                     notification: {
                                         title: "Find Friends",
                                         icon: "find-friends",
@@ -368,26 +381,24 @@ apiRoutes.post('/friend-request', (req, res) => {
                                         timeToLive: 3,
                                         dryRun: true,
                                         data: {
-                                            "request_type": "friend_request",
-                                            "email_id": senderUser.email,
-                                            "status": "accepted"
-                                        },
-                                        notification: {
-                                            title: "Find Friends",
-                                            icon: "find-friends",
-                                            body: senderUser.name + " has accepted your request"
+                                            data: {
+                                                "req": Constants.REQUEST_TYPE.filter(o => o.type === 'friend-request').map(o => o.code)[0],
+                                                "eid": senderUser.email_id,
+                                                "status": "Accepted"
+                                            }
                                         }
                                     };
                                     //Sending Push Notification to Friend
                                     fcm.send(message, function (err, response) {
                                         if (err) {
-                                            console.log("Something has happened wrong: ", err);
+                                            console.log("Something went wrong: ", err);
                                             res.json({
                                                 success: true,
                                                 status_code: 501,
                                                 message: 'Something went wrong'
                                             });
                                         } else {
+                                            console.log("Response: ", response);
                                             res.json({
                                                 success: true,
                                                 status_code: 200,
@@ -449,10 +460,12 @@ apiRoutes.post('/friend-request', (req, res) => {
                             delayWhileIdle: true,
                             timeToLive: 3,
                             dryRun: true,
-                            notification: {
-                                title: "Find Friends",
-                                icon: "find-friends",
-                                body: senderUser.name + " has denied your request"
+                            data: {
+                                data: {
+                                    "req": Constants.REQUEST_TYPE.filter(o => o.type === 'friend-request').map(o => o.code)[0],
+                                    "eid": senderUser.email_id,
+                                    "status": "Denied"
+                                }
                             }
                         };
                         //Sending Push Notification to Friend
