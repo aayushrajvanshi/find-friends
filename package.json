@@ -20,10 +20,10 @@
     "body-parser": "^1.17.1",
     "cors": "^2.8.3",
     "express": "^4.15.2",
+    "fcm-node": "^1.2.0",
     "jsonwebtoken": "^7.4.1",
     "mongoose": "^4.10.2",
     "morgan": "^1.8.1",
-    "node-gcm": "^0.14.6",
     "rimraf": "^2.6.1"
   }
 }

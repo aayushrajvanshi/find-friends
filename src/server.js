@@ -5,7 +5,7 @@ import morgan from 'morgan';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import config from './config';
-import gcm from 'node-gcm';
+import FCM from 'fcm-node';
 import cors from 'cors';
 
 app.use(cors());
@@ -13,7 +13,7 @@ app.use(cors());
 var User = require('./app/models/user');
 var Mapping = require('./app/models/mapping');
 
-const sender = new gcm.Sender(config.server_key);
+const fcm = new FCM(config.server_key);
 
 const port = process.env.PORT || 8080;
 const isProd = process.env.NODE_ENV === 'production';
@@ -48,7 +48,7 @@ apiRoutes.post('/login', (req, res) => {
             User.update({
                     email_id: user.email_id
                 }, {
-                    gcm_key: req.body.gcm_key,
+                    fcm_key: req.body.fcm_key,
                     access_token: token
                 }, {
                     upsert: true
@@ -57,7 +57,7 @@ apiRoutes.post('/login', (req, res) => {
                     res.json({
                         success: true,
                         status_code: 200,
-                        message: 'New Access Token Provided and GCM key updated',
+                        message: 'New Access Token Provided and FCM key updated',
                         token: token
                     });
                 });
@@ -68,7 +68,7 @@ apiRoutes.post('/login', (req, res) => {
                 name: req.body.name,
                 pic_url: req.body.pic_url,
                 google_id: req.body.google_id,
-                gcm_key: req.body.gcm_key,
+                fcm_key: req.body.fcm_key,
                 email_id: req.body.email_id,
                 access_token: ''
             });
@@ -90,7 +90,6 @@ apiRoutes.post('/login', (req, res) => {
                         success: false,
                         status_code: 501,
                         message: 'Failed to Add user',
-                        error: err,
                     });
                 })
         });
@@ -159,35 +158,40 @@ apiRoutes.post('/update-my-location', (req, res) => {
                                             email_id: o.email_id
                                         }).exec()
                                         .then((user) => {
-                                            connectedFriends.push(user.gcm_key);
+                                            connectedFriends.push(user.fcm_key);
                                         }));
                                     //TODO - change this set Time out Code
                                     setTimeout(() => {
                                         let reg_token = connectedFriends;
-                                        let message = new gcm.Message({
-                                            collapseKey: 'demo',
-                                            priority: 'high',
-                                            contentAvailable: true,
-                                            delayWhileIdle: true,
-                                            timeToLive: 3,
-                                            dryRun: true,
-                                            data: userLocation
-                                        });
                                         //Sending Push Notification to all connected friends with updated location
                                         //Checking if any friend is connected
                                         if (reg_token.length !== 0) {
-                                            sender.send(message, {
-                                                registrationTokens: reg_token
-                                            }, (err, response) => {
-                                                if (err) console.error(err);
-                                                else {
-                                                    console.log(response);
+                                            var message = {
+                                                registration_ids: reg_token,
+                                                collapseKey: 'demo',
+                                                priority: 'high',
+                                                contentAvailable: true,
+                                                delayWhileIdle: true,
+                                                timeToLive: 3,
+                                                dryRun: true,
+                                                data: userLocation
+                                            };
+                                            fcm.send(message, function (err, response) {
+                                                if (err) {
+                                                    console.log("Something has happened wrong: ", err);
+                                                    res.json({
+                                                        success: true,
+                                                        status_code: 501,
+                                                        message: 'Something went wrong'
+                                                    });
+                                                } else {
+                                                    console.log("Successfully sent with response: ", response);
                                                     res.json({
                                                         success: true,
                                                         status_code: 200,
                                                         message: 'Location updated and Push Notification sends to all connected friends'
                                                     });
-                                                };
+                                                }
                                             });
                                         } else {
                                             res.json({
@@ -230,7 +234,7 @@ apiRoutes.post('/update-my-location', (req, res) => {
             res.json({
                 success: false,
                 status_code: 501,
-                message: 'Error'
+                message: 'Something went wrong'
             });
         });
 });
@@ -256,37 +260,38 @@ apiRoutes.post('/connect-friend', (req, res) => {
                                 email_id: friend_email_id
                             }).exec()
                             .then((user) => {
-                                let reg_token = [user.gcm_key];
-                                let message = new gcm.Message({
+                                let reg_token = [user.fcm_key];
+                                var message = {
+                                    registration_ids: reg_token,
                                     collapseKey: 'demo',
                                     priority: 'high',
                                     contentAvailable: true,
                                     delayWhileIdle: true,
                                     timeToLive: 3,
                                     dryRun: true,
-                                    data: {
-                                        key1: 'message1',
-                                        key2: 'message2'
-                                    },
                                     notification: {
                                         title: "Find Friends",
                                         icon: "find-friends",
                                         body: senderUser + " requesting you to share your location."
                                     }
-                                });
+                                };
                                 //Sending Push Notification to Friend
-                                sender.send(message, {
-                                    registrationTokens: reg_token
-                                }, (err, response) => {
-                                    if (err) console.error(err);
-                                    else {
-                                        console.log(response);
+                                fcm.send(message, function (err, response) {
+                                    if (err) {
+                                        console.log("Something has happened wrong: ", err);
                                         res.json({
                                             success: true,
                                             status_code: 501,
+                                            message: 'Something went wrong'
+                                        });
+                                    } else {
+                                        console.log("Successfully sent with response: ", response);
+                                        res.json({
+                                            success: true,
+                                            status_code: 200,
                                             message: 'Push Notification send to friend'
                                         });
-                                    };
+                                    }
                                 });
                             })
                             .catch((err) => {
@@ -309,7 +314,7 @@ apiRoutes.post('/connect-friend', (req, res) => {
                     res.json({
                         success: false,
                         status_code: 501,
-                        message: err
+                        message: 'Something went wrong'
                     });
                 });
 
@@ -319,7 +324,7 @@ apiRoutes.post('/connect-friend', (req, res) => {
             res.json({
                 success: false,
                 status_code: 501,
-                message: err
+                message: 'Something went wrong'
             });
         });
 });
@@ -353,8 +358,9 @@ apiRoutes.post('/friend-request', (req, res) => {
                                         if (err) throw err;
                                         console.log('Mapping saved successfully');
                                     });
-                                    let reg_token = [receiverUser.gcm_key];
-                                    let message = new gcm.Message({
+                                    let reg_token = [receiverUser.fcm_key];
+                                    let message = {
+                                        registration_ids: reg_token,
                                         collapseKey: 'demo',
                                         priority: 'high',
                                         contentAvailable: true,
@@ -366,20 +372,23 @@ apiRoutes.post('/friend-request', (req, res) => {
                                             icon: "find-friends",
                                             body: senderUser.name + " has accepted your request"
                                         }
-                                    });
+                                    };
                                     //Sending Push Notification to Friend
-                                    sender.send(message, {
-                                        registrationTokens: reg_token
-                                    }, (err, response) => {
-                                        if (err) console.error(err);
-                                        else {
-                                            console.log(response);
+                                    fcm.send(message, function (err, response) {
+                                        if (err) {
+                                            console.log("Something has happened wrong: ", err);
+                                            res.json({
+                                                success: true,
+                                                status_code: 501,
+                                                message: 'Something went wrong'
+                                            });
+                                        } else {
                                             res.json({
                                                 success: true,
                                                 status_code: 200,
                                                 message: senderUser.name + ' has accepted your request'
                                             });
-                                        };
+                                        }
                                     });
                                 } else {
                                     res.json({
@@ -426,8 +435,9 @@ apiRoutes.post('/friend-request', (req, res) => {
                     }).exec()
                     .then((user) => {
                         let receiverUser = user;
-                        let reg_token = [receiverUser.gcm_key];
-                        let message = new gcm.Message({
+                        let reg_token = [receiverUser.fcm_key];
+                        let message = {
+                            registration_ids: reg_token,
                             collapseKey: 'demo',
                             priority: 'high',
                             contentAvailable: true,
@@ -439,29 +449,31 @@ apiRoutes.post('/friend-request', (req, res) => {
                                 icon: "find-friends",
                                 body: senderUser.name + " has denied your request"
                             }
-                        });
+                        };
                         //Sending Push Notification to Friend
-                        sender.send(message, {
-                            registrationTokens: reg_token
-                        }, (err, response) => {
-                            if (err) console.error(err);
-                            else {
-                                console.log(response);
+                        fcm.send(message, function (err, response) {
+                            if (err) {
+                                console.log("Something has happened wrong: ", err);
+                                res.json({
+                                    success: true,
+                                    status_code: 501,
+                                    message: 'Something went wrong'
+                                });
+                            } else {
                                 res.json({
                                     success: true,
                                     status_code: 200,
                                     message: senderUser.name + ' has denied your request'
                                 });
-                            };
+                            }
                         });
-
                     })
                     .catch((err) => {
                         if (err) console.error(err);
                         res.json({
                             success: false,
                             status_code: 501,
-                            message: err
+                            message: 'Something went wrong'
                         });
                     });
             }
@@ -471,7 +483,7 @@ apiRoutes.post('/friend-request', (req, res) => {
             res.json({
                 success: false,
                 status_code: 501,
-                message: err
+                message: 'Something went wrong'
             });
         })
 
@@ -518,7 +530,7 @@ apiRoutes.post('/disconnect', (req, res) => {
             res.json({
                 success: false,
                 status_code: 501,
-                message: err
+                message: 'Something went wrong'
             });
         });
 
@@ -561,7 +573,7 @@ apiRoutes.get('/get-connected', (req, res) => {
                     res.json({
                         success: false,
                         status_code: 501,
-                        message: err
+                        message: 'Something went wrong'
                     });
                 })
         })
@@ -570,7 +582,7 @@ apiRoutes.get('/get-connected', (req, res) => {
             res.json({
                 success: false,
                 status_code: 501,
-                message: err
+                message: 'Something went wrong'
             });
         });
 });

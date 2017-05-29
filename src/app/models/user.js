@@ -20,7 +20,7 @@ module.exports = mongoose.model('User', new Schema({
         type: String,
         required: true
     },
-    gcm_key: {
+    fcm_key: {
         type: String,
         required: true
     },
