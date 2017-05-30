@@ -279,7 +279,9 @@ apiRoutes.post('/connect-friend', (req, res) => {
                                     data: {
                                         data: {
                                             "req": Constants.REQUEST_TYPE.filter(o => o.type === 'connect-friend').map(o => o.code)[0],
-                                            "eid": senderUser.email_id
+                                            "eid": senderUser.email_id,
+                                            "name": senduerUser.name,
+                                            "pic_url": senderUser.pic_url
                                         }
                                     },
                                     notification: {
