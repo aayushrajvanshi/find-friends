@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import config from './config';
 import FCM from 'fcm-node';
 import cors from 'cors';
-
+import async from 'async';
 app.use(cors());
 
 var Constants = require('./constants');
@@ -154,21 +154,21 @@ apiRoutes.post('/update-my-location', (req, res) => {
                                     friend_email_id: user.email_id
                                 }).exec()
                                 .then((friends) => {
-                                    let connectedFriends = [];
+                                    var FCM_Keys = [];
                                     friends.map(o => User.findOne({
                                             email_id: o.email_id
                                         }).exec()
                                         .then((user) => {
-                                            connectedFriends.push(user.fcm_key);
+                                            FCM_Keys.push(user.fcm_key);
                                         }));
-                                    //TODO - change this set Time out Code
                                     setTimeout(() => {
-                                        let reg_token = connectedFriends;
+                                        let reg_tokens = FCM_Keys;
+                                        console.log(reg_tokens);
                                         //Sending Push Notification to all connected friends with updated location
                                         //Checking if any friend is connected
-                                        if (reg_token.length !== 0) {
+                                        if (reg_tokens.length !== 0) {
                                             let message = {
-                                                registration_ids: reg_token,
+                                                registration_ids: reg_tokens,
                                                 collapseKey: 'demo',
                                                 priority: 'high',
                                                 contentAvailable: true,
@@ -207,7 +207,7 @@ apiRoutes.post('/update-my-location', (req, res) => {
                                                 message: 'Location updated but no friends connected'
                                             });
                                         }
-                                    }, 1000);
+                                    }, 1000)
                                 })
                                 .catch((err) => {
                                     if (err) console.log(err);
@@ -280,7 +280,7 @@ apiRoutes.post('/connect-friend', (req, res) => {
                                         data: {
                                             "req": Constants.REQUEST_TYPE.filter(o => o.type === 'connect-friend').map(o => o.code)[0],
                                             "eid": senderUser.email_id,
-                                            "name": senduerUser.name,
+                                            "name": senderUser.name,
                                             "pic_url": senderUser.pic_url
                                         }
                                     },
